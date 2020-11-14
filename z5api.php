@@ -48,5 +48,5 @@ echo $api;
 }
 }
 else{
-  echo "error provide proper link"
+  echo "error provide proper link";
 }
