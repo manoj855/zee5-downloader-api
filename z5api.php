@@ -1,5 +1,6 @@
 <?php
 $url =$_GET['q'];
+if($url !=""){
 $id = end(explode('/', $url));
 $flink ="https://gwapi.zee5.com/content/details/$id?translation=en&country=IN&version=2";
 $token =file_get_contents("https://useraction.zee5.com/token/platform_tokens.php?platform_name=web_app");
@@ -44,4 +45,8 @@ echo $err;
 }
 else{
 echo $api;
+}
+}
+else{
+  echo "error provide proper link"
 }
