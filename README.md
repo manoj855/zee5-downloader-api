@@ -9,11 +9,13 @@
 for movies
 ```bash
 https://localhost:8080/z5api.php?q=https://www.zee5.com/movies/details/geetha-govindam/0-0-7463
+http://zee5api.herokuapp.com/z5api.php?q=https://www.zee5.com/movies/details/geetha-govindam/0-0-7463
 ```
 *Request :*
 for series provide specific episode link
 ```bash
 https://localhost:8080/z5api.php?q=https://www.zee5.com/zee5originals/details/poison/0-6-1558/ep-2-place-your-bets/0-1-manual_6hmmiegg4l20
+https://zee5api.herokuapp.com/z5api.php?q=https://www.zee5.com/zee5originals/details/poison/0-6-1558/ep-2-place-your-bets/0-1-manual_6hmmiegg4l20
 ```
 *Response:*
 
