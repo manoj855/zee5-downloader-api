@@ -31,8 +31,7 @@ $des =$hls->description;
 $hlss =$hls->hls[0];
 $sub =$hls->vtt_thumbnail_url[0];
 $error =$hls->error_code;
-$resStr = str_replace('drm1', 'hls1', $hlss); 
-$resStr = str_replace('drm', 'hls', $resStr); 
+$resStr = str_replace('drm', 'hls', $hlss); 
 
  $url = "https://zee5vodnd.akamaized.net".$resStr.$vtok;
 header("Content-Type: application/json");
