@@ -39,7 +39,7 @@ header("Content-Type: application/json");
 $errr= array("error" => "error provide proper input!" );
 $err =json_encode($errr);
 $apii = array("title" => $title, "description" => $des, "thumbnail" => $image, "video_url" => $url);
-$api =json_encode($apii);
+$api =json_encode($apii,JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 if($error ==101){
 echo $err;
 }
