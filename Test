@@ -8,7 +8,7 @@ import java.util.*;
 
 public class XMLProcessor {
     public static void main(String[] args) {
-        String inputFolderPath = "input_xmls";  // Folder containing XML files
+        String inputFolderPath = "input_xmls";  // Folder containing input XMLs
         String outputBasePath = "output_xmls";  // Base output folder
 
         // Predefined list of states to process
@@ -29,16 +29,14 @@ public class XMLProcessor {
             return;
         }
 
-        int globalTcCounter = 1; // Global Test Case Counter
-
         for (File xmlFile : xmlFiles) {
-            globalTcCounter = processXMLFile(xmlFile, outputBasePath, claimLossStates, specialStatesLobs, globalTcCounter);
+            processXMLFile(xmlFile, outputBasePath, claimLossStates, specialStatesLobs);
         }
 
         System.out.println("XML processing completed!");
     }
 
-    public static int processXMLFile(File xmlFile, String outputBasePath, List<String> claimLossStates, Map<String, List<String>> specialStatesLobs, int globalTcCounter) {
+    public static void processXMLFile(File xmlFile, String outputBasePath, List<String> claimLossStates, Map<String, List<String>> specialStatesLobs) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
@@ -48,20 +46,7 @@ public class XMLProcessor {
             NodeList stateNodes = doc.getElementsByTagName("CLAIM_LOSS_STATE");
             if (stateNodes.getLength() == 0) {
                 System.out.println("Skipping file (No CLAIM_LOSS_STATE found): " + xmlFile.getName());
-                return globalTcCounter;
-            }
-
-            Set<String> uniqueStates = new HashSet<>();
-            for (int i = 0; i < stateNodes.getLength(); i++) {
-                String state = stateNodes.item(i).getTextContent().trim();
-                if (claimLossStates.contains(state)) {
-                    uniqueStates.add(state);
-                }
-            }
-
-            if (uniqueStates.isEmpty()) {
-                System.out.println("Skipping file (No matching CLAIM_LOSS_STATE found): " + xmlFile.getName());
-                return globalTcCounter;
+                return;
             }
 
             String baseFileName = xmlFile.getName().replaceFirst("[.][^.]+$", "");
@@ -71,22 +56,23 @@ public class XMLProcessor {
                 outputFolder.mkdirs();
             }
 
-            for (String state : uniqueStates) {
+            int tcCounter = 1; // Reset counter for each input file
+
+            for (String state : claimLossStates) {
                 if (specialStatesLobs.containsKey(state)) {
                     for (String claimLob : specialStatesLobs.get(state)) {
-                        globalTcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, state, claimLob, globalTcCounter);
+                        tcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, state, claimLob, tcCounter);
                     }
                 } else {
-                    globalTcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, state, null, globalTcCounter);
+                    tcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, state, null, tcCounter);
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return globalTcCounter;
     }
 
-    public static int generateXML(File inputFile, String outputFolderPath, String baseFileName, String claimLossState, String claimLob, int globalTcCounter) {
+    public static int generateXML(File inputFile, String outputFolderPath, String baseFileName, String claimLossState, String claimLob, int tcCounter) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
@@ -99,8 +85,8 @@ public class XMLProcessor {
             }
 
             String outputFileName = (claimLob == null) ?
-                    String.format("%s_TC%02d_%s.xml", baseFileName, globalTcCounter++, claimLossState) :
-                    String.format("%s_TC%02d_%s_%s.xml", baseFileName, globalTcCounter++, claimLossState, claimLob.replace(" ", "_"));
+                    String.format("%s_TC%02d_%s.xml", baseFileName, tcCounter++, claimLossState) :
+                    String.format("%s_TC%02d_%s_%s.xml", baseFileName, tcCounter++, claimLossState, claimLob.replace(" ", "_"));
 
             String outputPath = outputFolderPath + "/" + outputFileName;
 
@@ -109,7 +95,7 @@ public class XMLProcessor {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return globalTcCounter;
+        return tcCounter;
     }
 
     public static void updateXMLTagValue(Document doc, String tagName, String newValue) {
