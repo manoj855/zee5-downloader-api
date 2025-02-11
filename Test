@@ -1,0 +1,96 @@
+import org.w3c.dom.*;
+import javax.xml.parsers.*;
+import javax.xml.transform.*;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.*;
+import java.util.*;
+
+public class XMLMultiTagUpdater {
+    public static void main(String[] args) {
+        String inputFilePath = "input.xml"; // Template XML file
+        String outputFolder = "output_xmls"; // Folder to store updated XMLs
+
+        // List of 84 states (replace with actual state names)
+        List<String> states = List.of(
+            "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+            "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+            "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana",
+            "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+            "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
+            "New Hampshire", "New Jersey", "New Mexico", "New York",
+            "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon",
+            "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
+            "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington",
+            "West Virginia", "Wisconsin", "Wyoming"
+            // Add remaining states to make it 84
+        );
+
+        // Define multiple tags and their replacement pattern
+        Map<String, String> tagReplacements = new HashMap<>();
+        tagReplacements.put("claimloss_state", "");  // State name
+        tagReplacements.put("claimloss_city", "City of "); // City prefix
+        tagReplacements.put("claimloss_amount", "1000"); // Default claim amount
+
+        // Create output folder if it doesn’t exist
+        File folder = new File(outputFolder);
+        if (!folder.exists()) {
+            folder.mkdirs();
+        }
+
+        // Process each state
+        for (String state : states) {
+            Map<String, String> updatedValues = new HashMap<>();
+            updatedValues.put("claimloss_state", state);
+            updatedValues.put("claimloss_city", "City of " + state);
+            updatedValues.put("claimloss_amount", String.valueOf(5000 + new Random().nextInt(5000))); // Random amount
+
+            String outputFilePath = outputFolder + "/" + state.replace(" ", "_") + ".xml";
+            updateAndSaveXML(inputFilePath, updatedValues, outputFilePath);
+        }
+
+        System.out.println("XML files generated successfully!");
+    }
+
+    public static void updateAndSaveXML(String inputFilePath, Map<String, String> updatedValues, String outputFilePath) {
+        try {
+            // Parse XML file
+            File xmlFile = new File(inputFilePath);
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(xmlFile);
+            doc.getDocumentElement().normalize();
+
+            // Update multiple tags
+            for (Map.Entry<String, String> entry : updatedValues.entrySet()) {
+                String tagName = entry.getKey();
+                String newValue = entry.getValue();
+
+                NodeList nodeList = doc.getElementsByTagName(tagName);
+                if (nodeList.getLength() == 0) {
+                    System.out.println("Tag <" + tagName + "> not found in " + inputFilePath);
+                    continue;
+                }
+
+                for (int i = 0; i < nodeList.getLength(); i++) {
+                    Node node = nodeList.item(i);
+                    if (node.getNodeType() == Node.ELEMENT_NODE) {
+                        node.setTextContent(newValue);
+                    }
+                }
+            }
+
+            // Save the modified XML file
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = transformerFactory.newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            DOMSource source = new DOMSource(doc);
+            StreamResult result = new StreamResult(new File(outputFilePath));
+            transformer.transform(source, result);
+
+            System.out.println("Saved: " + outputFilePath);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
