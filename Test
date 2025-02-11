@@ -6,89 +6,140 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.util.*;
 
-public class XMLMultiTagUpdater {
+public class XMLProcessor {
     public static void main(String[] args) {
-        String inputFilePath = "input.xml"; // Template XML file
-        String outputFolder = "output_xmls"; // Folder to store updated XMLs
+        String inputFolderPath = "input_xmls";  // Folder containing XML files
+        String outputBasePath = "output_xmls";  // Base output folder
 
-        // List of 84 states (replace with actual state names)
-        List<String> states = List.of(
-            "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
-            "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
-            "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana",
-            "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
-            "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
-            "New Hampshire", "New Jersey", "New Mexico", "New York",
-            "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon",
-            "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
-            "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington",
-            "West Virginia", "Wisconsin", "Wyoming"
-            // Add remaining states to make it 84
+        Set<String> specialStates = Set.of("Florida", "New York", "Pennsylvania");
+
+        // CLAIM_LOB values for Florida
+        List<String> floridaLobs = List.of(
+            "PERSONAL AUTOMOBILE",
+            "COMMERCIAL AUTOMOBILE",
+            "RESIDENTIAL PROPERTY",
+            "COMMERCIAL PROPERTY",
+            "VALUABLE ARTICLES"
         );
 
-        // Define multiple tags and their replacement pattern
-        Map<String, String> tagReplacements = new HashMap<>();
-        tagReplacements.put("claimloss_state", "");  // State name
-        tagReplacements.put("claimloss_city", "City of "); // City prefix
-        tagReplacements.put("claimloss_amount", "1000"); // Default claim amount
+        // CLAIM_LOB values for New York & Pennsylvania
+        List<String> nyPaLobs = List.of("PERSONAL AUTOMOBILE", "COMMERCIAL AUTOMOBILE");
 
-        // Create output folder if it doesn’t exist
-        File folder = new File(outputFolder);
-        if (!folder.exists()) {
-            folder.mkdirs();
+        // Default CLAIM_LOB for other states
+        String defaultClaimLob = "GENERAL INSURANCE";
+
+        // Create output base folder if it doesn’t exist
+        File baseOutputFolder = new File(outputBasePath);
+        if (!baseOutputFolder.exists()) {
+            baseOutputFolder.mkdirs();
         }
 
-        // Process each state
-        for (String state : states) {
-            Map<String, String> updatedValues = new HashMap<>();
-            updatedValues.put("claimloss_state", state);
-            updatedValues.put("claimloss_city", "City of " + state);
-            updatedValues.put("claimloss_amount", String.valueOf(5000 + new Random().nextInt(5000))); // Random amount
+        File inputFolder = new File(inputFolderPath);
+        File[] xmlFiles = inputFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".xml"));
 
-            String outputFilePath = outputFolder + "/" + state.replace(" ", "_") + ".xml";
-            updateAndSaveXML(inputFilePath, updatedValues, outputFilePath);
+        if (xmlFiles == null || xmlFiles.length == 0) {
+            System.out.println("No XML files found in " + inputFolderPath);
+            return;
         }
 
-        System.out.println("XML files generated successfully!");
+        int globalTcCounter = 1; // Global Test Case Counter
+
+        for (File xmlFile : xmlFiles) {
+            globalTcCounter = processXMLFile(xmlFile, outputBasePath, specialStates, floridaLobs, nyPaLobs, defaultClaimLob, globalTcCounter);
+        }
+
+        System.out.println("XML processing completed!");
     }
 
-    public static void updateAndSaveXML(String inputFilePath, Map<String, String> updatedValues, String outputFilePath) {
+    public static int processXMLFile(File xmlFile, String outputBasePath, Set<String> specialStates,
+                                     List<String> floridaLobs, List<String> nyPaLobs, String defaultClaimLob, int globalTcCounter) {
         try {
-            // Parse XML file
-            File xmlFile = new File(inputFilePath);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(xmlFile);
             doc.getDocumentElement().normalize();
 
-            // Update multiple tags
-            for (Map.Entry<String, String> entry : updatedValues.entrySet()) {
-                String tagName = entry.getKey();
-                String newValue = entry.getValue();
+            NodeList stateNodes = doc.getElementsByTagName("CLAIM_LOSS_STATE");
+            if (stateNodes.getLength() == 0) {
+                System.out.println("Skipping file (No CLAIM_LOSS_STATE found): " + xmlFile.getName());
+                return globalTcCounter;
+            }
+            String claimLossState = stateNodes.item(0).getTextContent().trim();
 
-                NodeList nodeList = doc.getElementsByTagName(tagName);
-                if (nodeList.getLength() == 0) {
-                    System.out.println("Tag <" + tagName + "> not found in " + inputFilePath);
-                    continue;
-                }
-
-                for (int i = 0; i < nodeList.getLength(); i++) {
-                    Node node = nodeList.item(i);
-                    if (node.getNodeType() == Node.ELEMENT_NODE) {
-                        node.setTextContent(newValue);
-                    }
-                }
+            String baseFileName = xmlFile.getName().replaceFirst("[.][^.]+$", "");
+            String outputFolderPath = outputBasePath + "/" + baseFileName;
+            File outputFolder = new File(outputFolderPath);
+            if (!outputFolder.exists()) {
+                outputFolder.mkdirs();
             }
 
-            // Save the modified XML file
+            if (claimLossState.equals("Florida")) {
+                for (String claimLob : floridaLobs) {
+                    globalTcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, claimLossState, claimLob, globalTcCounter);
+                }
+            } else if (claimLossState.equals("New York") || claimLossState.equals("Pennsylvania")) {
+                for (String claimLob : nyPaLobs) {
+                    globalTcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, claimLossState, claimLob, globalTcCounter);
+                }
+                // One extra scenario for any other CLAIM_LOB
+                globalTcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, claimLossState, "OTHER", globalTcCounter);
+            } else {
+                globalTcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, claimLossState, defaultClaimLob, globalTcCounter);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return globalTcCounter;
+    }
+
+    public static int generateXML(File inputFile, String outputFolderPath, String baseFileName, 
+                                  String claimLossState, String claimLob, int globalTcCounter) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(inputFile);
+            doc.getDocumentElement().normalize();
+
+            updateXMLTagValue(doc, "CLAIM_LOSS_STATE", claimLossState);
+            updateXMLTagValue(doc, "CLAIM_LOB", claimLob);
+
+            String outputFileName = claimLob.equals("OTHER") ?
+                    String.format("%s_TC%02d_%s.xml", baseFileName, globalTcCounter++, claimLossState) :
+                    String.format("%s_TC%02d_%s_%s.xml", baseFileName, globalTcCounter++, claimLossState, claimLob.replace(" ", "_"));
+
+            String outputPath = outputFolderPath + "/" + outputFileName;
+
+            saveXMLFile(doc, outputPath);
+            System.out.println("Generated: " + outputPath);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return globalTcCounter;
+    }
+
+    public static void updateXMLTagValue(Document doc, String tagName, String newValue) {
+        NodeList nodeList = doc.getElementsByTagName(tagName);
+        if (nodeList.getLength() == 0) {
+            System.out.println("Tag <" + tagName + "> not found.");
+            return;
+        }
+
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Node node = nodeList.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                node.setTextContent(newValue);
+            }
+        }
+    }
+
+    public static void saveXMLFile(Document doc, String filePath) {
+        try {
             TransformerFactory transformerFactory = TransformerFactory.newInstance();
             Transformer transformer = transformerFactory.newTransformer();
             transformer.setOutputProperty(OutputKeys.INDENT, "yes");
             DOMSource source = new DOMSource(doc);
-            StreamResult result = new StreamResult(new File(outputFilePath));
+            StreamResult result = new StreamResult(new File(filePath));
             transformer.transform(source, result);
-
-            System.out.println("Saved: " + outputFilePath);
         } catch (Exception e) {
             e.printStackTrace();
         }
