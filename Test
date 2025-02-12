@@ -11,7 +11,7 @@ public class XMLProcessor {
         String inputFolderPath = "input_xmls";  // Folder containing input XMLs
         String outputBasePath = "output_xmls";  // Base output folder
 
-        // Predefined list of states to process
+        // Predefined list of states
         List<String> claimLossStates = List.of("Florida", "New York", "Pennsylvania", "Texas", "California");
 
         // Special states with multiple LOBs
@@ -19,6 +19,13 @@ public class XMLProcessor {
             "Florida", List.of("PERSONAL AUTOMOBILE", "COMMERCIAL AUTOMOBILE", "RESIDENTIAL PROPERTY", "COMMERCIAL PROPERTY", "VALUABLE ARTICLES"),
             "New York", List.of("PERSONAL AUTOMOBILE", "COMMERCIAL AUTOMOBILE", "OTHER"),
             "Pennsylvania", List.of("PERSONAL AUTOMOBILE", "COMMERCIAL AUTOMOBILE", "OTHER")
+        );
+
+        // States that require RECIPIENT modification and their respective values
+        Map<String, String> recipientUpdates = Map.of(
+            "Florida", "FL_Recipient",
+            "New York", "NY_Recipient",
+            "California", "CA_Recipient"
         );
 
         File inputFolder = new File(inputFolderPath);
@@ -30,24 +37,18 @@ public class XMLProcessor {
         }
 
         for (File xmlFile : xmlFiles) {
-            processXMLFile(xmlFile, outputBasePath, claimLossStates, specialStatesLobs);
+            processXMLFile(xmlFile, outputBasePath, claimLossStates, specialStatesLobs, recipientUpdates);
         }
 
         System.out.println("XML processing completed!");
     }
 
-    public static void processXMLFile(File xmlFile, String outputBasePath, List<String> claimLossStates, Map<String, List<String>> specialStatesLobs) {
+    public static void processXMLFile(File xmlFile, String outputBasePath, List<String> claimLossStates, Map<String, List<String>> specialStatesLobs, Map<String, String> recipientUpdates) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(xmlFile);
             doc.getDocumentElement().normalize();
-
-            NodeList stateNodes = doc.getElementsByTagName("CLAIM_LOSS_STATE");
-            if (stateNodes.getLength() == 0) {
-                System.out.println("Skipping file (No CLAIM_LOSS_STATE found): " + xmlFile.getName());
-                return;
-            }
 
             String baseFileName = xmlFile.getName().replaceFirst("[.][^.]+$", "");
             String outputFolderPath = outputBasePath + "/" + baseFileName;
@@ -61,10 +62,10 @@ public class XMLProcessor {
             for (String state : claimLossStates) {
                 if (specialStatesLobs.containsKey(state)) {
                     for (String claimLob : specialStatesLobs.get(state)) {
-                        tcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, state, claimLob, tcCounter);
+                        tcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, state, claimLob, recipientUpdates, tcCounter);
                     }
                 } else {
-                    tcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, state, null, tcCounter);
+                    tcCounter = generateXML(xmlFile, outputFolderPath, baseFileName, state, null, recipientUpdates, tcCounter);
                 }
             }
         } catch (Exception e) {
@@ -72,7 +73,7 @@ public class XMLProcessor {
         }
     }
 
-    public static int generateXML(File inputFile, String outputFolderPath, String baseFileName, String claimLossState, String claimLob, int tcCounter) {
+    public static int generateXML(File inputFile, String outputFolderPath, String baseFileName, String claimLossState, String claimLob, Map<String, String> recipientUpdates, int tcCounter) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
@@ -82,6 +83,11 @@ public class XMLProcessor {
             updateXMLTagValue(doc, "CLAIM_LOSS_STATE", claimLossState);
             if (claimLob != null) {
                 updateXMLTagValue(doc, "CLAIM_LOB", claimLob);
+            }
+
+            // Update RECIPIENT only for predefined states
+            if (recipientUpdates.containsKey(claimLossState)) {
+                updateXMLTagValue(doc, "RECIPIENT", recipientUpdates.get(claimLossState));
             }
 
             String outputFileName = (claimLob == null) ?
