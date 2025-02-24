@@ -1,0 +1,69 @@
+import java.io.File;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import java.util.Scanner;
+
+public class RemoveRepeatingTag {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter folder path containing XMLs: ");
+        String folderPath = scanner.nextLine();
+        // Automatically detect repeating tags
+        String tagName = null;
+        scanner.close();
+
+        File folder = new File(folderPath);
+        File[] files = folder.listFiles((dir, name) -> name.endsWith(".xml"));
+
+        if (files == null || files.length == 0) {
+            System.out.println("No XML files found in the specified folder.");
+            return;
+        }
+
+        for (File file : files) {
+            try {
+                DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+                DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+                Document doc = dBuilder.parse(file);
+                doc.getDocumentElement().normalize();
+
+                // Detect all tags
+                NodeList allTags = doc.getDocumentElement().getChildNodes();
+                for (int i = 0; i < allTags.getLength(); i++) {
+                    Node node = allTags.item(i);
+                    if (node.getNodeType() == Node.ELEMENT_NODE) {
+                        String currentTag = node.getNodeName();
+                        NodeList nodeList = doc.getElementsByTagName(currentTag);
+                        if (nodeList.getLength() > 1) {  // If more than one occurrence
+                            tagName = currentTag;
+                            Node nodeToRemove = nodeList.item(0);  // Remove the first occurrence
+                            nodeToRemove.getParentNode().removeChild(nodeToRemove);
+                            System.out.println("Removed one occurrence of <" + tagName + "> from " + file.getName());  // If more than one occurrence
+                    Node nodeToRemove = nodeList.item(0);  // Remove the first occurrence
+                    nodeToRemove.getParentNode().removeChild(nodeToRemove);
+                    System.out.println("Removed one occurrence of <" + tagName + "> from " + file.getName());
+
+                    // Save updated XML
+                    TransformerFactory transformerFactory = TransformerFactory.newInstance();
+                    Transformer transformer = transformerFactory.newTransformer();
+                    transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+                    DOMSource source = new DOMSource(doc);
+                    StreamResult result = new StreamResult(file);
+                    transformer.transform(source, result);
+                }
+            } catch (Exception e) {
+                System.out.println("Error processing file " + file.getName() + ": " + e.getMessage());
+            }
+        }
+
+        System.out.println("Processing complete.");
+    }
+}
