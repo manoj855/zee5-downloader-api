@@ -13,12 +13,12 @@ import java.util.Scanner;
 
 public class RemoveRepeatingTag {
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
+        try (Scanner scanner = new Scanner(System.in)) {
         System.out.print("Enter folder path containing XMLs: ");
         String folderPath = scanner.nextLine();
         // Automatically detect repeating tags
         String tagName = null;
-        scanner.close();
+        }
 
         File folder = new File(folderPath);
         File[] files = folder.listFiles((dir, name) -> name.endsWith(".xml"));
@@ -43,15 +43,9 @@ public class RemoveRepeatingTag {
                         String currentTag = node.getNodeName();
                         int count = 0;
                         Node toRemove = null;
-                        for (int j = 0; j < allTags.getLength(); j++) {
-                            Node innerNode = allTags.item(j);
-                            if (innerNode.getNodeName().equals(currentTag)) {
-                                count++;
-                                if (count > 1) {  // If repeated, mark for removal
-                                    toRemove = innerNode;
-                                    break;
-                                }
-                            }
+                        NodeList nodeList = doc.getElementsByTagName(currentTag);
+                        if (nodeList.getLength() > 1) {  // If more than one occurrence
+                            toRemove = nodeList.item(0);  // Remove the first occurrence
                         }
                         if (toRemove != null) {
                             toRemove.getParentNode().removeChild(toRemove);
@@ -59,9 +53,7 @@ public class RemoveRepeatingTag {
                         }
                     }
                 }  // If more than one occurrence
-                    Node nodeToRemove = nodeList.item(0);  // Remove the first occurrence
-                    nodeToRemove.getParentNode().removeChild(nodeToRemove);
-                    System.out.println("Removed one occurrence of <" + tagName + "> from " + file.getName());
+                    
 
                     // Save updated XML
                     TransformerFactory transformerFactory = TransformerFactory.newInstance();
@@ -72,7 +64,7 @@ public class RemoveRepeatingTag {
                     transformer.transform(source, result);
                 }
             } catch (Exception e) {
-                System.out.println("Error processing file " + file.getName() + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
