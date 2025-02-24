@@ -17,7 +17,8 @@ public class RemoveRepeatingTag {
         System.out.print("Enter folder path containing XMLs: ");
         String folderPath = scanner.nextLine();
         // Automatically detect repeating tags
-        String tagName = null;
+        System.out.print("Enter the tag name to remove: ");
+        String tagName = scanner.nextLine();
         }
 
         File folder = new File(folderPath);
@@ -36,13 +37,12 @@ public class RemoveRepeatingTag {
                 doc.getDocumentElement().normalize();
 
                 // Detect all tags
-                NodeList allTags = doc.getDocumentElement().getChildNodes();
-                for (int i = 0; i < allTags.getLength(); i++) {
-                    Node node = allTags.item(i);
-                    if (node.getNodeType() == Node.ELEMENT_NODE) {
-                        String currentTag = node.getNodeName();
-                        int count = 0;
-                        Node toRemove = null;
+                NodeList nodeList = doc.getElementsByTagName(tagName);
+                while (nodeList.getLength() > 0) {
+                    Node toRemove = nodeList.item(0);
+                    toRemove.getParentNode().removeChild(toRemove);
+                    System.out.println("Removed <" + tagName + "> from " + file.getName());
+                    nodeList = doc.getElementsByTagName(tagName);  // Refresh the list
                         NodeList nodeList = doc.getElementsByTagName(currentTag);
                         if (nodeList.getLength() > 1) {  // If more than one occurrence
                             toRemove = nodeList.item(0);  // Remove the first occurrence
