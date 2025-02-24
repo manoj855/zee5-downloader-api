@@ -13,61 +13,56 @@ import java.util.Scanner;
 
 public class RemoveRepeatingTag {
     public static void main(String[] args) {
-        try (Scanner scanner = new Scanner(System.in)) {
-        System.out.print("Enter folder path containing XMLs: ");
-        String folderPath = scanner.nextLine();
-        // Automatically detect repeating tags
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter the major folder path: ");
+        String majorFolderPath = scanner.nextLine();
         System.out.print("Enter the tag name to remove: ");
         String tagName = scanner.nextLine();
-        }
+        scanner.close();
 
-        File folder = new File(folderPath);
-        File[] files = folder.listFiles((dir, name) -> name.endsWith(".xml"));
-
-        if (files == null || files.length == 0) {
-            System.out.println("No XML files found in the specified folder.");
+        File majorFolder = new File(majorFolderPath);
+        if (!majorFolder.isDirectory()) {
+            System.out.println("Invalid folder path.");
             return;
         }
 
-        for (File file : files) {
-            try {
-                DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-                DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-                Document doc = dBuilder.parse(file);
-                doc.getDocumentElement().normalize();
+        processFolder(majorFolder, tagName);
+        System.out.println("All processing complete.");
+    }
 
-                // Detect all tags
-                NodeList nodeList = doc.getElementsByTagName(tagName);
-                while (nodeList.getLength() > 0) {
-                    Node toRemove = nodeList.item(0);
-                    toRemove.getParentNode().removeChild(toRemove);
-                    System.out.println("Removed <" + tagName + "> from " + file.getName());
-                    nodeList = doc.getElementsByTagName(tagName);  // Refresh the list
-                        NodeList nodeList = doc.getElementsByTagName(currentTag);
-                        if (nodeList.getLength() > 1) {  // If more than one occurrence
-                            toRemove = nodeList.item(0);  // Remove the first occurrence
-                        }
-                        if (toRemove != null) {
+    public static void processFolder(File folder, String tagName) {
+        File[] filesAndDirs = folder.listFiles();
+        if (filesAndDirs == null) return;
+
+        for (File file : filesAndDirs) {
+            if (file.isDirectory()) {
+                processFolder(file, tagName); // Recursively process subfolders
+            } else if (file.isFile() && file.getName().endsWith(".xml")) {
+                try {
+                    DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+                    DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+                    Document doc = dBuilder.parse(file);
+                    doc.getDocumentElement().normalize();
+
+                    NodeList nodeList = doc.getElementsByTagName(tagName);
+                    if (nodeList.getLength() > 1) {
+                        for (int i = nodeList.getLength() - 1; i > 0; i--) {
+                            Node toRemove = nodeList.item(i);
                             toRemove.getParentNode().removeChild(toRemove);
-                            System.out.println("Removed one occurrence of <" + currentTag + "> from " + file.getName());
+                            System.out.println("Removed one occurrence of <" + tagName + "> from " + file.getName());
                         }
                     }
-                }  // If more than one occurrence
-                    
 
-                    // Save updated XML
                     TransformerFactory transformerFactory = TransformerFactory.newInstance();
                     Transformer transformer = transformerFactory.newTransformer();
                     transformer.setOutputProperty(OutputKeys.INDENT, "yes");
                     DOMSource source = new DOMSource(doc);
                     StreamResult result = new StreamResult(file);
                     transformer.transform(source, result);
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
-
-        System.out.println("Processing complete.");
     }
 }
