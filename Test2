@@ -55,7 +55,10 @@ public class RemoveRepeatingTag {
                         }
                         if (toRemove != null) {
                             toRemove.getParentNode().removeChild(toRemove);
-                            System.out.println("Removed one occurrence of <" + currentTag + "> from " + file.getName());  // If more than one occurrence
+                            System.out.println("Removed one occurrence of <" + currentTag + "> from " + file.getName());
+                        }
+                    }
+                }  // If more than one occurrence
                     Node nodeToRemove = nodeList.item(0);  // Remove the first occurrence
                     nodeToRemove.getParentNode().removeChild(nodeToRemove);
                     System.out.println("Removed one occurrence of <" + tagName + "> from " + file.getName());
