@@ -41,12 +41,21 @@ public class RemoveRepeatingTag {
                     Node node = allTags.item(i);
                     if (node.getNodeType() == Node.ELEMENT_NODE) {
                         String currentTag = node.getNodeName();
-                        NodeList nodeList = doc.getElementsByTagName(currentTag);
-                        if (nodeList.getLength() > 1) {  // If more than one occurrence
-                            tagName = currentTag;
-                            Node nodeToRemove = nodeList.item(0);  // Remove the first occurrence
-                            nodeToRemove.getParentNode().removeChild(nodeToRemove);
-                            System.out.println("Removed one occurrence of <" + tagName + "> from " + file.getName());  // If more than one occurrence
+                        int count = 0;
+                        Node toRemove = null;
+                        for (int j = 0; j < allTags.getLength(); j++) {
+                            Node innerNode = allTags.item(j);
+                            if (innerNode.getNodeName().equals(currentTag)) {
+                                count++;
+                                if (count > 1) {  // If repeated, mark for removal
+                                    toRemove = innerNode;
+                                    break;
+                                }
+                            }
+                        }
+                        if (toRemove != null) {
+                            toRemove.getParentNode().removeChild(toRemove);
+                            System.out.println("Removed one occurrence of <" + currentTag + "> from " + file.getName());  // If more than one occurrence
                     Node nodeToRemove = nodeList.item(0);  // Remove the first occurrence
                     nodeToRemove.getParentNode().removeChild(nodeToRemove);
                     System.out.println("Removed one occurrence of <" + tagName + "> from " + file.getName());
