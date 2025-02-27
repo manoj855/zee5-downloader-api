@@ -17,7 +17,7 @@ public class PDFPathToExcel {
             scanFolders(mainFolder);
         }
 
-        System.out.println("Excel files generated in respective PDFOutPut folders.");
+        System.out.println("Processing completed. Check PDFOutPut folders for Excel files.");
     }
 
     // Recursive method to scan for PDFOutPut folders
@@ -26,30 +26,42 @@ public class PDFPathToExcel {
             if (subFolder.isDirectory()) {
                 // Check if folder name is PDFOutPut
                 if (subFolder.getName().equalsIgnoreCase("PDFOutPut")) {
+                    System.out.println("Processing folder: " + subFolder.getAbsolutePath());
+
                     // Collect PDF paths in this folder
                     TreeMap<String, String[]> pdfMap = new TreeMap<>();
-                    File[] pdfFiles = subFolder.listFiles((dir, name) -> name.endsWith(".pdf"));
+                    File[] pdfFiles = subFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
                     
                     if (pdfFiles != null) {
                         for (File pdfFile : pdfFiles) {
-                            String fileName = pdfFile.getName();
-                            // Extract prefix (anything before _quadient or _xpression)
-                            String[] parts = fileName.split("_");
-                            if (parts.length > 1) {
-                                String prefix = parts[0];
-                                String type = parts[1];
+                            String fileName = pdfFile.getName().toLowerCase(); // Make lowercase for case-insensitive matching
+                            System.out.println("Found PDF: " + fileName);
 
-                                // Initialize array if not already present
+                            String prefix = null;
+
+                            // Extract prefix for quadient and xpression
+                            if (fileName.endsWith("_quadient.pdf")) {
+                                prefix = fileName.substring(0, fileName.lastIndexOf("_quadient.pdf"));
                                 pdfMap.putIfAbsent(prefix, new String[2]);
-
-                                // Store paths accordingly
-                                if (type.equalsIgnoreCase("xpression.pdf")) {
-                                    pdfMap.get(prefix)[0] = pdfFile.getAbsolutePath();
-                                } else if (type.equalsIgnoreCase("quadient.pdf")) {
-                                    pdfMap.get(prefix)[1] = pdfFile.getAbsolutePath();
-                                }
+                                pdfMap.get(prefix)[1] = pdfFile.getAbsolutePath(); // 2nd column for quadient
+                            } else if (fileName.endsWith("_xpression.pdf")) {
+                                prefix = fileName.substring(0, fileName.lastIndexOf("_xpression.pdf"));
+                                pdfMap.putIfAbsent(prefix, new String[2]);
+                                pdfMap.get(prefix)[0] = pdfFile.getAbsolutePath(); // 1st column for xpression
                             }
                         }
+                    }
+
+                    // Display the collected map for debugging
+                    System.out.println("Collected PDF Paths:");
+                    pdfMap.forEach((key, value) -> {
+                        System.out.println(key + " => Xpression: " + value[0] + ", Quadient: " + value[1]);
+                    });
+
+                    // Skip Excel generation if no data is collected
+                    if (pdfMap.isEmpty()) {
+                        System.out.println("No matching PDFs found. Skipping Excel generation for this folder.");
+                        continue;
                     }
 
                     // Create Excel in the same PDFOutPut folder
@@ -91,6 +103,7 @@ public class PDFPathToExcel {
         try (FileOutputStream fos = new FileOutputStream(filePath)) {
             workbook.write(fos);
             workbook.close();
+            System.out.println("Excel generated: " + filePath);
         } catch (IOException e) {
             e.printStackTrace();
         }
