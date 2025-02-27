@@ -18,82 +18,8 @@ public class PDFPathExcelGenerator {
         List<String[]> allPDFData = new ArrayList<>();
 
         if (mainFolder.exists() && mainFolder.isDirectory()) {
-            for (File subFolder : mainFolder.listFiles()) {
-                if (subFolder.isDirectory()) {
-                    // Recursively scan for PDFOutPut folders
-                    for (File pdfOutputFolder : subFolder.listFiles()) {
-                        if (pdfOutputFolder.isDirectory() && pdfOutputFolder.getName().equalsIgnoreCase("PDFOutPut")) {
-                            System.out.println("Processing folder: " + pdfOutputFolder.getAbsolutePath());
-
-                            // Collect PDF paths in this folder
-                            TreeMap<String, String[]> pdfMap = new TreeMap<>();
-                            File[] pdfFiles = pdfOutputFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
-
-                            if (pdfFiles != null) {
-                                for (File pdfFile : pdfFiles) {
-                                    String fileName = pdfFile.getName().toLowerCase(); // Case-insensitive matching
-                                    String prefix = null;
-
-                                    // Extract prefix for quadient and xpression
-                                    if (fileName.endsWith("_quadient.pdf")) {
-                                        prefix = fileName.substring(0, fileName.lastIndexOf("_quadient.pdf"));
-                                        pdfMap.putIfAbsent(prefix, new String[3]);  // 3 columns now
-                                        pdfMap.get(prefix)[1] = pdfFile.getAbsolutePath(); // 2nd column for quadient
-                                    } else if (fileName.endsWith("_xpression.pdf")) {
-                                        prefix = fileName.substring(0, fileName.lastIndexOf("_xpression.pdf"));
-                                        pdfMap.putIfAbsent(prefix, new String[3]);  // 3 columns now
-                                        pdfMap.get(prefix)[0] = pdfFile.getAbsolutePath(); // 1st column for xpression
-                                    }
-                                }
-                            }
-
-                            // Calculate relative folder path here
-                            String folderPath = pdfOutputFolder.getAbsolutePath();
-                            String relativeFolderPath = folderPath.replace(mainFolderPath, "") // Remove main folder path
-                                                                  .replaceFirst("[\\\\/]", "") // Remove leading separator
-                                                                  .replace("PDFOutPut", "")    // Remove PDFOutPut
-                                                                  .replace("\\", "/");          // Use forward slashes
-
-                            // Using for-each loop instead of lambda
-                            for (Map.Entry<String, String[]> entry : pdfMap.entrySet()) {
-                                String prefix = entry.getKey();
-                                String[] paths = entry.getValue();
-                                paths[2] = relativeFolderPath + prefix;
-                                allPDFData.add(paths); // Add to major Excel data
-                            }
-
-                            // Skip Excel generation if no data is collected
-                            if (pdfMap.isEmpty()) {
-                                System.out.println("No matching PDFs found. Skipping Excel generation for this folder.");
-                                continue;
-                            }
-
-                            // Create Excel in the same PDFOutPut folder
-                            String outputExcelFilePath = pdfOutputFolder.getAbsolutePath() + File.separator + "PDF_Paths.xlsx";
-                            try (XSSFWorkbook workbook = new XSSFWorkbook()) {
-                                XSSFSheet sheet = workbook.createSheet("PDF Paths");
-
-                                // Add Rows
-                                int rowNum = 0;
-                                for (String[] data : pdfMap.values()) {
-                                    Row row = sheet.createRow(rowNum++);
-                                    for (int i = 0; i < data.length; i++) {
-                                        Cell cell = row.createCell(i);
-                                        cell.setCellValue(data[i] != null ? data[i] : "");
-                                    }
-                                }
-
-                                try (FileOutputStream out = new FileOutputStream(outputExcelFilePath)) {
-                                    workbook.write(out);
-                                }
-                                System.out.println("Excel created at: " + outputExcelFilePath);
-                            } catch (IOException e) {
-                                System.err.println("Error creating Excel: " + e.getMessage());
-                            }
-                        }
-                    }
-                }
-            }
+            // Start recursive scan from the main folder
+            scanDirectory(mainFolder, mainFolderPath, allPDFData);
 
             // Create the major Excel file with all data
             if (!allPDFData.isEmpty()) {
@@ -121,6 +47,86 @@ public class PDFPathExcelGenerator {
             }
         } else {
             System.err.println("Main folder does not exist or is not a directory.");
+        }
+    }
+
+    // Recursive method to scan directories for PDFOutPut folders
+    private static void scanDirectory(File directory, String mainFolderPath, List<String[]> allPDFData) {
+        for (File file : directory.listFiles()) {
+            if (file.isDirectory()) {
+                if (file.getName().equalsIgnoreCase("PDFOutPut")) {
+                    System.out.println("Processing folder: " + file.getAbsolutePath());
+
+                    // Collect PDF paths in this PDFOutPut folder
+                    TreeMap<String, String[]> pdfMap = new TreeMap<>();
+                    File[] pdfFiles = file.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
+
+                    if (pdfFiles != null) {
+                        for (File pdfFile : pdfFiles) {
+                            String fileName = pdfFile.getName().toLowerCase(); // Case-insensitive matching
+                            String prefix = null;
+
+                            // Extract prefix for quadient and xpression
+                            if (fileName.endsWith("_quadient.pdf")) {
+                                prefix = fileName.substring(0, fileName.lastIndexOf("_quadient.pdf"));
+                                pdfMap.putIfAbsent(prefix, new String[3]);  // 3 columns now
+                                pdfMap.get(prefix)[1] = pdfFile.getAbsolutePath(); // 2nd column for quadient
+                            } else if (fileName.endsWith("_xpression.pdf")) {
+                                prefix = fileName.substring(0, fileName.lastIndexOf("_xpression.pdf"));
+                                pdfMap.putIfAbsent(prefix, new String[3]);  // 3 columns now
+                                pdfMap.get(prefix)[0] = pdfFile.getAbsolutePath(); // 1st column for xpression
+                            }
+                        }
+                    }
+
+                    // Calculate relative folder path here
+                    String folderPath = file.getAbsolutePath();
+                    String relativeFolderPath = folderPath.replace(mainFolderPath, "") // Remove main folder path
+                                                          .replaceFirst("[\\\\/]", "") // Remove leading separator
+                                                          .replace("PDFOutPut", "")    // Remove PDFOutPut
+                                                          .replace("\\", "/");          // Use forward slashes
+
+                    // Using traditional for-each loop
+                    for (Map.Entry<String, String[]> entry : pdfMap.entrySet()) {
+                        String prefix = entry.getKey();
+                        String[] paths = entry.getValue();
+                        paths[2] = relativeFolderPath + prefix;
+                        allPDFData.add(paths); // Add to major Excel data
+                    }
+
+                    // Skip Excel generation if no data is collected
+                    if (pdfMap.isEmpty()) {
+                        System.out.println("No matching PDFs found. Skipping Excel generation for this folder.");
+                        continue;
+                    }
+
+                    // Create Excel in the same PDFOutPut folder
+                    String outputExcelFilePath = file.getAbsolutePath() + File.separator + "PDF_Paths.xlsx";
+                    try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+                        XSSFSheet sheet = workbook.createSheet("PDF Paths");
+
+                        // Add Rows
+                        int rowNum = 0;
+                        for (String[] data : pdfMap.values()) {
+                            Row row = sheet.createRow(rowNum++);
+                            for (int i = 0; i < data.length; i++) {
+                                Cell cell = row.createCell(i);
+                                cell.setCellValue(data[i] != null ? data[i] : "");
+                            }
+                        }
+
+                        try (FileOutputStream out = new FileOutputStream(outputExcelFilePath)) {
+                            workbook.write(out);
+                        }
+                        System.out.println("Excel created at: " + outputExcelFilePath);
+                    } catch (IOException e) {
+                        System.err.println("Error creating Excel: " + e.getMessage());
+                    }
+                } else {
+                    // Recursively check subdirectories
+                    scanDirectory(file, mainFolderPath, allPDFData);
+                }
+            }
         }
     }
 }
