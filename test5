@@ -1,0 +1,159 @@
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.*;
+
+public class PDFPathToExcel {
+
+    // To store data for the major Excel
+    static List<String[]> allPDFData = new ArrayList<>();
+
+    public static void main(String[] args) {
+        // Input Main Folder Path
+        String mainFolderPath = "C:\\path\\to\\main\\folder";
+
+        // Scan all subfolders
+        File mainFolder = new File(mainFolderPath);
+        if (mainFolder.exists() && mainFolder.isDirectory()) {
+            scanFolders(mainFolder, mainFolderPath);
+        }
+
+        // Generate Major Excel with all PDF paths
+        String majorExcelPath = mainFolderPath + File.separator + "All_PDF_Paths.xlsx";
+        createMajorExcel(majorExcelPath, allPDFData);
+
+        System.out.println("Processing completed. Check PDFOutPut folders and main folder for Excel files.");
+    }
+
+    // Recursive method to scan for PDFOutPut folders
+    public static void scanFolders(File folder, String mainFolderPath) {
+        for (File subFolder : folder.listFiles()) {
+            if (subFolder.isDirectory()) {
+                // Check if folder name is PDFOutPut
+                if (subFolder.getName().equalsIgnoreCase("PDFOutPut")) {
+                    System.out.println("Processing folder: " + subFolder.getAbsolutePath());
+
+                    // Collect PDF paths in this folder
+                    TreeMap<String, String[]> pdfMap = new TreeMap<>();
+                    File[] pdfFiles = subFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf"));
+                    
+                    if (pdfFiles != null) {
+                        for (File pdfFile : pdfFiles) {
+                            String fileName = pdfFile.getName().toLowerCase(); // Make lowercase for case-insensitive matching
+                            String prefix = null;
+
+                            // Extract prefix for quadient and xpression
+                            if (fileName.endsWith("_quadient.pdf")) {
+                                prefix = fileName.substring(0, fileName.lastIndexOf("_quadient.pdf"));
+                                pdfMap.putIfAbsent(prefix, new String[3]);  // 3 columns now
+                                pdfMap.get(prefix)[1] = pdfFile.getAbsolutePath(); // 2nd column for quadient
+                            } else if (fileName.endsWith("_xpression.pdf")) {
+                                prefix = fileName.substring(0, fileName.lastIndexOf("_xpression.pdf"));
+                                pdfMap.putIfAbsent(prefix, new String[3]);  // 3 columns now
+                                pdfMap.get(prefix)[0] = pdfFile.getAbsolutePath(); // 1st column for xpression
+                            }
+                        }
+                    }
+
+                    // Prepare Relative Path for the new Column
+                    String relativeFolder = subFolder.getAbsolutePath().replace(mainFolderPath, "").replaceFirst("[\\\\/]", "");
+                    pdfMap.forEach((prefix, paths) -> {
+                        paths[2] = relativeFolder + "/" + prefix;
+                        allPDFData.add(paths); // Add to major Excel data
+                    });
+
+                    // Skip Excel generation if no data is collected
+                    if (pdfMap.isEmpty()) {
+                        System.out.println("No matching PDFs found. Skipping Excel generation for this folder.");
+                        continue;
+                    }
+
+                    // Create Excel in the same PDFOutPut folder
+                    String outputExcelFilePath = subFolder.getAbsolutePath() + File.separator + "PDF_Paths.xlsx";
+                    createExcel(outputExcelFilePath, pdfMap);
+                } else {
+                    // Recursively scan subdirectories
+                    scanFolders(subFolder, mainFolderPath);
+                }
+            }
+        }
+    }
+
+    // Method to create Excel sheet from map for each PDFOutPut folder
+    public static void createExcel(String filePath, TreeMap<String, String[]> pdfMap) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("PDF Paths");
+
+        int rowNum = 1; // Start from second row (first is empty)
+
+        for (Map.Entry<String, String[]> entry : pdfMap.entrySet()) {
+            Row row = sheet.createRow(rowNum++);
+            String[] paths = entry.getValue();
+
+            // Column 1: xpression, Column 2: quadient, Column 3: Relative Path
+            if (paths[0] != null) {
+                row.createCell(0).setCellValue(paths[0]);
+            }
+            if (paths[1] != null) {
+                row.createCell(1).setCellValue(paths[1]);
+            }
+            if (paths[2] != null) {
+                row.createCell(2).setCellValue(paths[2]);
+            }
+        }
+
+        // Adjust column widths
+        sheet.autoSizeColumn(0);
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
+
+        // Write to file
+        try (FileOutputStream fos = new FileOutputStream(filePath)) {
+            workbook.write(fos);
+            workbook.close();
+            System.out.println("Excel generated: " + filePath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Method to create the major Excel file
+    public static void createMajorExcel(String filePath, List<String[]> allData) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("All PDF Paths");
+
+        int rowNum = 1; // Start from second row (first is empty)
+
+        for (String[] paths : allData) {
+            Row row = sheet.createRow(rowNum++);
+
+            // Column 1: xpression, Column 2: quadient, Column 3: Relative Path
+            if (paths[0] != null) {
+                row.createCell(0).setCellValue(paths[0]);
+            }
+            if (paths[1] != null) {
+                row.createCell(1).setCellValue(paths[1]);
+            }
+            if (paths[2] != null) {
+                row.createCell(2).setCellValue(paths[2]);
+            }
+        }
+
+        // Adjust column widths
+        sheet.autoSizeColumn(0);
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
+
+        // Write to file
+        try (FileOutputStream fos = new FileOutputStream(filePath)) {
+            workbook.write(fos);
+            workbook.close();
+            System.out.println("Major Excel generated: " + filePath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
