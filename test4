@@ -1,0 +1,98 @@
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.*;
+
+public class PDFPathToExcel {
+    public static void main(String[] args) {
+        // Input Main Folder Path
+        String mainFolderPath = "C:\\path\\to\\main\\folder";
+
+        // Scan all subfolders
+        File mainFolder = new File(mainFolderPath);
+        if (mainFolder.exists() && mainFolder.isDirectory()) {
+            scanFolders(mainFolder);
+        }
+
+        System.out.println("Excel files generated in respective PDFOutPut folders.");
+    }
+
+    // Recursive method to scan for PDFOutPut folders
+    public static void scanFolders(File folder) {
+        for (File subFolder : folder.listFiles()) {
+            if (subFolder.isDirectory()) {
+                // Check if folder name is PDFOutPut
+                if (subFolder.getName().equalsIgnoreCase("PDFOutPut")) {
+                    // Collect PDF paths in this folder
+                    TreeMap<String, String[]> pdfMap = new TreeMap<>();
+                    File[] pdfFiles = subFolder.listFiles((dir, name) -> name.endsWith(".pdf"));
+                    
+                    if (pdfFiles != null) {
+                        for (File pdfFile : pdfFiles) {
+                            String fileName = pdfFile.getName();
+                            // Extract prefix (anything before _quadient or _xpression)
+                            String[] parts = fileName.split("_");
+                            if (parts.length > 1) {
+                                String prefix = parts[0];
+                                String type = parts[1];
+
+                                // Initialize array if not already present
+                                pdfMap.putIfAbsent(prefix, new String[2]);
+
+                                // Store paths accordingly
+                                if (type.equalsIgnoreCase("xpression.pdf")) {
+                                    pdfMap.get(prefix)[0] = pdfFile.getAbsolutePath();
+                                } else if (type.equalsIgnoreCase("quadient.pdf")) {
+                                    pdfMap.get(prefix)[1] = pdfFile.getAbsolutePath();
+                                }
+                            }
+                        }
+                    }
+
+                    // Create Excel in the same PDFOutPut folder
+                    String outputExcelFilePath = subFolder.getAbsolutePath() + File.separator + "PDF_Paths.xlsx";
+                    createExcel(outputExcelFilePath, pdfMap);
+                } else {
+                    // Recursively scan subdirectories
+                    scanFolders(subFolder);
+                }
+            }
+        }
+    }
+
+    // Method to create Excel sheet from map
+    public static void createExcel(String filePath, TreeMap<String, String[]> pdfMap) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("PDF Paths");
+
+        int rowNum = 1; // Start from second row (first is empty)
+
+        for (Map.Entry<String, String[]> entry : pdfMap.entrySet()) {
+            Row row = sheet.createRow(rowNum++);
+            String[] paths = entry.getValue();
+
+            // First column for xpression, second for quadient
+            if (paths[0] != null) {
+                row.createCell(0).setCellValue(paths[0]);
+            }
+            if (paths[1] != null) {
+                row.createCell(1).setCellValue(paths[1]);
+            }
+        }
+
+        // Adjust column widths
+        sheet.autoSizeColumn(0);
+        sheet.autoSizeColumn(1);
+
+        // Write to file
+        try (FileOutputStream fos = new FileOutputStream(filePath)) {
+            workbook.write(fos);
+            workbook.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
