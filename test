@@ -1,0 +1,138 @@
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.File;
+import java.util.*;
+
+public class XMLProcessor {
+    // List of states to be processed
+    private static final List<String> states = Arrays.asList(
+            "Alabama", "Alaska", "Arizona", "California", "Florida",
+            "New York", "Pennsylvania", "Texas", "Washington"
+    );
+
+    // Special states requiring separate XMLs for each CLAIM_LOB
+    private static final List<String> specialStates = Arrays.asList("Florida", "New York", "Pennsylvania");
+
+    // CLAIM_LOB values for special states
+    private static final List<String> floridaLobs = Arrays.asList(
+            "PERSONAL AUTOMOBILE", "COMMERCIAL AUTOMOBILE",
+            "RESIDENTIAL PROPERTY", "COMMERCIAL PROPERTY", "VALUABLE ARTICLES"
+    );
+
+    private static final List<String> nyAndPaLobs = Arrays.asList(
+            "PERSONAL AUTOMOBILE", "COMMERCIAL AUTOMOBILE"
+    );
+
+    // Recipient updates for specific states
+    private static final Map<String, String> recipientUpdates = new HashMap<>() {{
+        put("New York", "NY_Recipient");
+        put("Florida", "FL_Recipient");
+        put("Texas", "TX_Recipient");
+    }};
+
+    public static void main(String[] args) {
+        // Input folder containing XMLs
+        String inputFolderPath = "inputFolder"; // Change this to your input folder path
+
+        // Output folder to store generated XMLs
+        String outputBasePath = "outputFolder"; // Change this to your output folder path
+        File inputFolder = new File(inputFolderPath);
+
+        if (inputFolder.exists() && inputFolder.isDirectory()) {
+            File[] inputFiles = inputFolder.listFiles((dir, name) -> name.endsWith(".xml"));
+            int tcCounter = 1;
+
+            if (inputFiles != null) {
+                for (File inputFile : inputFiles) {
+                    String baseFileName = inputFile.getName().replace(".xml", "");
+                    String outputFolderPath = outputBasePath + "/" + baseFileName;
+                    new File(outputFolderPath).mkdirs();
+
+                    // Iterate through each state
+                    for (String state : states) {
+                        if (specialStates.contains(state)) {
+                            List<String> lobs = state.equals("Florida") ? floridaLobs : nyAndPaLobs;
+                            for (String lob : lobs) {
+                                tcCounter = generateXML(inputFile, outputFolderPath, baseFileName, state, lob, tcCounter);
+                            }
+                            // Add one extra scenario for "other" CLAIM_LOB
+                            tcCounter = generateXML(inputFile, outputFolderPath, baseFileName, state, "OTHER", tcCounter);
+                        } else {
+                            // Generate XML for other states
+                            tcCounter = generateXML(inputFile, outputFolderPath, baseFileName, state, null, tcCounter);
+                        }
+                    }
+                }
+            }
+        } else {
+            System.out.println("Input folder not found!");
+        }
+    }
+
+    public static int generateXML(File inputFile, String outputFolderPath, String baseFileName, String claimLossState, String claimLob, int tcCounter) {
+        try {
+            // Reload XML for each state to avoid carrying over previous changes
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(inputFile);
+            doc.getDocumentElement().normalize();
+
+            // Update CLAIM_LOSS_STATE
+            updateXMLTagValue(doc, "CLAIM_LOSS_STATE", claimLossState);
+
+            // Update CLAIM_LOB if applicable
+            if (claimLob != null) {
+                updateXMLTagValue(doc, "CLAIM_LOB", claimLob);
+            }
+
+            // Update RECIPIENT for predefined states
+            if (recipientUpdates.containsKey(claimLossState)) {
+                updateXMLTagValue(doc, "RECIPIENT", recipientUpdates.get(claimLossState));
+            }
+
+            // Generate output filename
+            String outputFileName = (claimLob == null) ?
+                    String.format("%s_TC%02d_%s.xml", baseFileName, tcCounter++, claimLossState) :
+                    String.format("%s_TC%02d_%s_%s.xml", baseFileName, tcCounter++, claimLossState, claimLob.replace(" ", "_"));
+
+            String outputPath = outputFolderPath + "/" + outputFileName;
+
+            // Save modified XML to output folder
+            saveXMLFile(doc, outputPath);
+            System.out.println("Generated: " + outputPath);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return tcCounter;
+    }
+
+    public static void updateXMLTagValue(Document doc, String tagName, String newValue) {
+        NodeList nodes = doc.getElementsByTagName(tagName);
+        if (nodes.getLength() > 0) {
+            nodes.item(0).setTextContent(newValue);
+        }
+    }
+
+    public static void saveXMLFile(Document doc, String filePath) {
+        try {
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = transformerFactory.newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+
+            DOMSource source = new DOMSource(doc);
+            StreamResult result = new StreamResult(new File(filePath));
+            transformer.transform(source, result);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
